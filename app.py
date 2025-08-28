@@ -155,10 +155,6 @@ def get_conversation_chain(vectorstore):
 def index():
     return render_template('index.html')
 
-@app.route('/test')
-def test_upload():
-    return render_template('test_upload.html')
-
 @app.route('/process', methods=['POST'])
 def process_documents():
     global vectorstore, conversation_chain, chat_history
