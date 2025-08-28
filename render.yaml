@@ -1,0 +1,15 @@
+# Render Deployment Configuration
+
+# Build Settings
+BUILD_COMMAND="pip install -r requirements.txt"
+START_COMMAND="gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
+
+# Environment Variables (Set in Render Dashboard)
+# GOOGLE_API_KEY=your_google_ai_api_key_here
+# PYTHON_VERSION=3.9.18
+# FLASK_ENV=production
+
+# Auto-Deploy Settings
+# - Connect GitHub repository
+# - Enable auto-deploy on main branch
+# - Monitor health checks

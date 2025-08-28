@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>TeleCare AI Assistant | Medical Document Analysis</title>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'healthcare-blue': '#0077BE',
+                        'healthcare-teal': '#00A693',
+                        'healthcare-light': '#E8F4FD',
+                        'healthcare-dark': '#003B5C'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Hide scrollbars while keeping functionality */
+        .scrollbar-hide {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;  /* Chrome, Safari and Opera */
+        }
+        
+        /* Smooth scrolling */
+        .overflow-y-auto {
+            scroll-behavior: smooth;
+        }
+        
+        /* Custom textarea styling */
+        textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+        
+        /* Animation for typing indicator */
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+        
+        .animate-pulse {
+            animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        /* Ensure full height utilization */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-slate-800 via-blue-900 to-indigo-900 min-h-screen overflow-hidden flex flex-col">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="fixed top-4 right-4 z-50 space-y-2">
+                {% for message in messages %}
+                    <div class="bg-white border-l-4 border-healthcare-teal shadow-lg rounded-r-lg px-6 py-4 max-w-md">
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle text-healthcare-teal mr-3"></i>
+                            <p class="text-healthcare-dark font-medium">{{ message }}</p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Header -->
+    <header class="bg-transparent border-b border-white/20 sticky top-0 z-40 backdrop-blur-md">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+                        <div class="bg-white/20 p-2 rounded-lg">
+                            <i class="fas fa-heartbeat text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-white">TeleCare AI Assistant</h1>
+                            <p class="text-white/70 text-sm">Medical Document Analysis</p>
+                        </div>
+                    </a>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <!-- Status indicator -->
+                    <div class="flex items-center space-x-2 bg-green-500/20 px-3 py-2 rounded-full border border-green-500/30">
+                        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span class="text-green-300 text-sm font-medium">AI Online</span>
+                    </div>
+                    
+                    <!-- New Analysis Button -->
+                    <a href="/" class="bg-healthcare-blue/80 text-white px-4 py-2 rounded-lg hover:bg-healthcare-blue transition-colors flex items-center space-x-2 backdrop-blur-sm">
+                        <i class="fas fa-plus"></i>
+                        <span>New Analysis</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Chat Interface -->
+    <main class="flex-1 flex flex-col min-h-0">
+        <!-- Chat Messages Area - Full Height with Hidden Scrollbar -->
+        <div class="flex-1 overflow-y-auto scrollbar-hide" style="scrollbar-width: none; -ms-overflow-style: none;">
+            <div class="max-w-4xl mx-auto px-4 py-6" id="chat-messages">
+                {% if chat_history %}
+                    {% for message in chat_history %}
+                        {% if message.__class__.__name__ == 'HumanMessage' %}
+                            <!-- User Message -->
+                            <div class="flex justify-end mb-6">
+                                <div class="max-w-2xl flex items-start space-x-3">
+                                    <div class="flex-1">
+                                        <div class="bg-gradient-to-r from-healthcare-blue to-healthcare-teal text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-lg">
+                                            <p class="leading-relaxed">{{ message.content }}</p>
+                                        </div>
+                                        <div class="flex items-center justify-end mt-1 space-x-1">
+                                            <span class="text-xs text-white/50">Just now</span>
+                                        </div>
+                                    </div>
+                                    <div class="w-8 h-8 bg-gradient-to-r from-healthcare-blue to-healthcare-teal rounded-full flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-user text-white text-sm"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        {% elif message.__class__.__name__ == 'AIMessage' %}
+                            <!-- AI Message -->
+                            <div class="flex justify-start mb-6">
+                                <div class="max-w-2xl flex items-start space-x-3">
+                                    <div class="w-8 h-8 bg-gradient-to-br from-healthcare-teal to-healthcare-blue rounded-full flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-robot text-white text-sm"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl rounded-tl-sm px-4 py-3 shadow-lg">
+                                            <p class="text-white leading-relaxed">{{ message.content }}</p>
+                                        </div>
+                                        <div class="flex items-center mt-1 space-x-2">
+                                            <span class="text-xs text-white/50">AI Assistant</span>
+                                            <i class="fas fa-check-circle text-green-400 text-xs"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <!-- Welcome Message -->
+                    <div class="flex justify-center items-center min-h-full">
+                        <div class="text-center max-w-2xl">
+                            <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8">
+                                <div class="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
+                                    <i class="fas fa-stethoscope text-white text-2xl"></i>
+                                </div>
+                                <h3 class="text-2xl font-bold text-white mb-3">Welcome to TeleCare AI</h3>
+                                <p class="text-white/70 mb-6">Your medical documents have been analyzed. Start asking questions below!</p>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-left">
+                                    <div class="bg-white/5 backdrop-blur-sm p-3 rounded-lg border border-white/10">
+                                        <i class="fas fa-question-circle text-healthcare-blue mb-1 text-sm"></i>
+                                        <h4 class="font-semibold text-white text-sm">Diagnosis & Symptoms</h4>
+                                        <p class="text-xs text-white/60">Medical conditions and symptoms</p>
+                                    </div>
+                                    <div class="bg-white/5 backdrop-blur-sm p-3 rounded-lg border border-white/10">
+                                        <i class="fas fa-pills text-healthcare-teal mb-1 text-sm"></i>
+                                        <h4 class="font-semibold text-white text-sm">Treatments & Medications</h4>
+                                        <p class="text-xs text-white/60">Treatment plans and prescriptions</p>
+                                    </div>
+                                    <div class="bg-white/5 backdrop-blur-sm p-3 rounded-lg border border-white/10">
+                                        <i class="fas fa-chart-line text-blue-400 mb-1 text-sm"></i>
+                                        <h4 class="font-semibold text-white text-sm">Test Results</h4>
+                                        <p class="text-xs text-white/60">Lab results and medical tests</p>
+                                    </div>
+                                    <div class="bg-white/5 backdrop-blur-sm p-3 rounded-lg border border-white/10">
+                                        <i class="fas fa-clipboard-list text-green-400 mb-1 text-sm"></i>
+                                        <h4 class="font-semibold text-white text-sm">Recommendations</h4>
+                                        <p class="text-xs text-white/60">Medical advice and next steps</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <!-- Fixed Bottom Input Area -->
+    <footer class="bg-white/10 backdrop-blur-md border-t border-white/20 p-4">
+        <div class="max-w-4xl mx-auto">
+            <!-- Quick Questions Row -->
+            <div class="mb-4">
+                <div class="flex flex-wrap gap-2 justify-center">
+                    <button type="button" onclick="setQuestion('Summarize the key findings')" 
+                            class="bg-white/10 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs hover:bg-healthcare-blue/50 transition-colors border border-white/20">
+                        <i class="fas fa-list mr-1"></i>
+                        Key findings
+                    </button>
+                    <button type="button" onclick="setQuestion('What is the main diagnosis?')" 
+                            class="bg-white/10 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs hover:bg-healthcare-teal/50 transition-colors border border-white/20">
+                        <i class="fas fa-stethoscope mr-1"></i>
+                        Diagnosis
+                    </button>
+                    <button type="button" onclick="setQuestion('List all medications mentioned')" 
+                            class="bg-white/10 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs hover:bg-blue-500/50 transition-colors border border-white/20">
+                        <i class="fas fa-pills mr-1"></i>
+                        Medications
+                    </button>
+                    <button type="button" onclick="setQuestion('Explain the treatment plan')" 
+                            class="bg-white/10 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs hover:bg-green-500/50 transition-colors border border-white/20">
+                        <i class="fas fa-clipboard-list mr-1"></i>
+                        Treatment
+                    </button>
+                </div>
+            </div>
+
+            <!-- Input Form -->
+            <form action="/chat" method="post" class="relative">
+                <div class="flex items-end space-x-3">
+                    <div class="flex-1 relative">
+                        <textarea name="user_question" id="user_question" required
+                            placeholder="Ask a question about your medical documents..."
+                            class="w-full bg-white/10 backdrop-blur-md border border-white/30 rounded-2xl px-4 py-3 pr-16 resize-none focus:border-healthcare-blue focus:ring-2 focus:ring-healthcare-blue/20 transition-all text-white placeholder-white/50 max-h-32"
+                            rows="1"></textarea>
+                        
+                        <!-- Input Controls -->
+                        <div class="absolute right-2 bottom-2 flex items-center space-x-2">
+                            <button type="button" class="text-white/40 hover:text-white/70 transition-colors p-1">
+                                <i class="fas fa-paperclip text-sm"></i>
+                            </button>
+                            <button type="button" class="text-white/40 hover:text-white/70 transition-colors p-1">
+                                <i class="fas fa-microphone text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Send Button -->
+                    <button type="submit" 
+                            class="bg-gradient-to-r from-healthcare-blue to-healthcare-teal text-white p-3 rounded-xl hover:from-healthcare-blue/80 hover:to-healthcare-teal/80 transition-all duration-200 shadow-lg flex items-center justify-center min-w-[48px] h-12">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                
+                <!-- Character count or status -->
+                <div class="mt-2 text-center">
+                    <div class="flex items-center justify-center space-x-4 text-xs text-white/50">
+                        <span class="flex items-center space-x-1">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>HIPAA Secure</span>
+                        </span>
+                        <span class="flex items-center space-x-1">
+                            <i class="fas fa-lock"></i>
+                            <span>Encrypted</span>
+                        </span>
+                        <span class="flex items-center space-x-1">
+                            <i class="fas fa-robot"></i>
+                            <span>AI-Powered</span>
+                        </span>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </footer>
+
+    <script>
+        // Auto-resize textarea
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+        }
+
+        // Set question from quick buttons
+        function setQuestion(question) {
+            const textarea = document.getElementById('user_question');
+            textarea.value = question;
+            textarea.focus();
+            autoResize(textarea);
+        }
+
+        // Initialize textarea auto-resize and chat functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const textarea = document.getElementById('user_question');
+            const chatContainer = document.querySelector('.scrollbar-hide');
+            
+            // Auto-resize textarea on input
+            textarea.addEventListener('input', function() {
+                autoResize(this);
+            });
+
+            // Auto-scroll to bottom of chat on page load
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            // Focus on input
+            textarea.focus();
+
+            // Handle Enter key (Shift+Enter for new line, Enter to submit)
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (this.value.trim()) {
+                        this.closest('form').submit();
+                    }
+                }
+            });
+        });
+
+        // Handle form submission with loading state
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const textarea = document.getElementById('user_question');
+            const submitBtn = this.querySelector('button[type="submit"]');
+            
+            if (!textarea.value.trim()) {
+                e.preventDefault();
+                return;
+            }
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
+            // Show typing indicator
+            const chatMessages = document.getElementById('chat-messages');
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'flex justify-start mb-6';
+            typingDiv.id = 'typing-indicator';
+            typingDiv.innerHTML = `
+                <div class="max-w-2xl flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-gradient-to-br from-healthcare-teal to-healthcare-blue rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-robot text-white text-sm"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl rounded-tl-sm px-4 py-3 shadow-lg">
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-white/70 rounded-full animate-pulse"></div>
+                                <div class="w-2 h-2 bg-white/70 rounded-full animate-pulse" style="animation-delay: 0.2s"></div>
+                                <div class="w-2 h-2 bg-white/70 rounded-full animate-pulse" style="animation-delay: 0.4s"></div>
+                                <span class="text-white/70 ml-2 text-sm">AI is analyzing...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(typingDiv);
+            
+            // Scroll to bottom using the scrollbar-hide container
+            const chatContainer = document.querySelector('.scrollbar-hide');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+    </script>
+</body>
+</html>
