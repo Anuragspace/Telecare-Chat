@@ -102,25 +102,58 @@ def get_text_chunks(text):
     return chunks
 
 def get_vectorstore(text_chunks):
-    print("Creating vector store with embeddings...")
+    """Create vector store with Google text-embedding-004 (verified working)"""
+    print("\n" + "="*60)
+    print("📦 CREATING VECTOR STORE")
+    print("="*60)
+    
+    # Limit chunks to avoid memory issues
+    if len(text_chunks) > 50:
+        print(f"⚠️  Limiting {len(text_chunks)} chunks to 50 for better performance")
+        text_chunks = text_chunks[:50]
+    
+    print(f"📄 Processing {len(text_chunks)} text chunks")
+    
+    # Initialize Google text-embedding-004 (verified working!)
+    print("\n🔄 Initializing Google text-embedding-004...")
+    if not GOOGLE_API_KEY or GOOGLE_API_KEY == "your-google-api-key-here":
+        raise Exception("Google API key not found. Please set GOOGLE_API_KEY in environment.")
+    
     try:
-        print("Initializing Google embeddings...")
-        
-        # Try to create embeddings with explicit configuration
         embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
-            google_api_key=os.environ.get('GOOGLE_API_KEY')
+            model="models/text-embedding-004"
         )
-        print("✓ Embeddings model initialized")
         
-        print(f"Creating FAISS vector store from {len(text_chunks)} text chunks...")
-        vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
-        print("✓ Vector store created successfully")
-        return vectorstore
+        # Test embeddings with a simple query
+        print("   Testing embeddings...")
+        test_result = embeddings.embed_query("test")
+        
+        if not test_result or len(test_result) == 0:
+            raise Exception("Embedding test returned empty result")
+        
+        print(f"   ✅ SUCCESS! Vector dimension: {len(test_result)}")
+        
     except Exception as e:
-        print(f"Error creating vector store: {e}")
+        error_str = str(e)
+        print(f"   ❌ Failed: {error_str}")
+        
+        if "quota" in error_str.lower() or "429" in error_str:
+            raise Exception("Google API quota exceeded. Please check your usage at https://ai.dev/usage")
+        else:
+            raise Exception(f"Google embeddings failed: {error_str}")
+    
+    # Create FAISS vector store
+    print(f"\n🔄 Creating FAISS vector store...")
+    try:
+        vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
+        print(f"✅ Vector store created successfully with {len(text_chunks)} chunks!")
+        print("="*60 + "\n")
+        return vectorstore
+        
+    except Exception as e:
+        print(f"❌ FAISS creation failed: {str(e)}")
         print(f"Full traceback: {traceback.format_exc()}")
-        raise
+        raise Exception(f"Failed to create FAISS vector store: {str(e)}")
 
 def get_conversation_chain(vectorstore):
     print("Creating conversation chain...")
@@ -129,9 +162,8 @@ def get_conversation_chain(vectorstore):
         
         # Try to create LLM with explicit configuration
         llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash", 
-            temperature=0.3,
-            google_api_key=os.environ.get('GOOGLE_API_KEY')
+            model="gemini-2.0-flash", 
+            temperature=0.3
         )
         print("✓ LLM initialized")
         
@@ -158,59 +190,75 @@ def index():
 @app.route('/process', methods=['POST'])
 def process_documents():
     global vectorstore, conversation_chain, chat_history
-    print("=== Processing documents ===")
+    print("\n" + "="*60)
+    print("📄 STARTING DOCUMENT PROCESSING")
+    print("="*60)
+    
     try:
         # Reset chat history for new document processing
         chat_history = []
         
         pdf_docs = request.files.getlist('pdf_docs')
-        print(f"Received {len(pdf_docs)} files")
+        print(f"\n📥 Received {len(pdf_docs)} file(s)")
         
         if not pdf_docs:
-            print("No files received")
+            print("❌ No files received")
             flash("No files were uploaded. Please select PDF files.")
             return redirect('/')
             
         if pdf_docs[0].filename == '':
-            print("Empty filename received")
+            print("❌ Empty filename received")
             flash("Please select valid PDF files.")
             return redirect('/')
         
         # Log file details
         for i, pdf in enumerate(pdf_docs):
-            print(f"File {i+1}: {pdf.filename} ({pdf.content_type})")
+            print(f"   {i+1}. {pdf.filename} ({pdf.content_type})")
         
-        print("Extracting text from PDFs...")
+        print("\n🔄 STEP 1: Extracting text from PDFs...")
         raw_text = get_pdf_text(pdf_docs)
         
         if not raw_text.strip():
-            print("No text extracted from PDFs")
+            print("❌ No text extracted from PDFs")
             flash("No text could be extracted from the PDF files. Please ensure they contain readable text.")
             return redirect('/')
         
-        print("Creating text chunks...")
+        print(f"✅ Extracted {len(raw_text)} characters")
+        
+        print("\n🔄 STEP 2: Creating text chunks...")
         text_chunks = get_text_chunks(raw_text)
         
         if not text_chunks:
-            print("No text chunks created")
+            print("❌ No text chunks created")
             flash("Could not process the PDF content. Please try a different file.")
             return redirect('/')
         
-        print("Creating vector store...")
+        print(f"✅ Created {len(text_chunks)} chunks")
+        
+        print("\n🔄 STEP 3: Creating vector store...")
         vectorstore = get_vectorstore(text_chunks)
+        print("✅ Vector store ready")
         
-        print("Creating conversation chain...")
+        print("\n🔄 STEP 4: Creating conversation chain...")
         conversation_chain = get_conversation_chain(vectorstore)
+        print("✅ Conversation chain ready")
         
-        print("✓ Document processing completed successfully!")
+        print("\n" + "="*60)
+        print("✅ DOCUMENT PROCESSING COMPLETED SUCCESSFULLY!")
+        print("="*60 + "\n")
+        
         flash("Documents processed successfully! You can now ask questions.")
         return redirect('/chat')
         
     except Exception as e:
-        error_msg = f"Error processing documents: {str(e)}"
-        print(error_msg)
-        print(f"Full traceback: {traceback.format_exc()}")
-        flash(f"Error processing documents: {str(e)}")
+        print("\n" + "="*60)
+        print("❌ ERROR DURING DOCUMENT PROCESSING")
+        print("="*60)
+        print(f"\nError: {str(e)}")
+        print(f"\nFull traceback:\n{traceback.format_exc()}")
+        print("="*60 + "\n")
+        
+        flash(f"Error: {str(e)}")
         return redirect('/')
 
 @app.route('/chat', methods=['GET', 'POST'])
