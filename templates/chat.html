@@ -117,7 +117,7 @@
             <div class="max-w-4xl mx-auto px-4 py-6" id="chat-messages">
                 {% if chat_history %}
                     {% for message in chat_history %}
-                        {% if message.__class__.__name__ == 'HumanMessage' %}
+                        {% if message.type == 'HumanMessage' or message.__class__.__name__ == 'HumanMessage' %}
                             <!-- User Message -->
                             <div class="flex justify-end mb-6">
                                 <div class="max-w-2xl flex items-start space-x-3">
@@ -134,7 +134,7 @@
                                     </div>
                                 </div>
                             </div>
-                        {% elif message.__class__.__name__ == 'AIMessage' %}
+                        {% elif message.type == 'AIMessage' or message.__class__.__name__ == 'AIMessage' %}
                             <!-- AI Message -->
                             <div class="flex justify-start mb-6">
                                 <div class="max-w-2xl flex items-start space-x-3">
